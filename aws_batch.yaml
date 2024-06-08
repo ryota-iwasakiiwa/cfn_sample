@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: ''
+
+Parameters:
+  PrefixName:
+    Type: String
+    Description: Prefix for the resources
+  ComputerEnvMaxvCpus:
+    Type: Number
+    Description: Maximum number of vCPUs
+
+Resources:
+  SampleInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - aws-batch-cfn-sample-role
+
+  ComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      ComputeEnvironmentName: !Sub ${PrefixName}-compute-environment
+      ComputeResources:
+        # Ec2Configuration: 
+        #   - ImageType: ECS_AL2 # default value is ECS_AL2
+        # ImageId: String
+        InstanceRole: !Ref SampleInstanceProfile
+        InstanceTypes: 
+          - m6g.medium        # vPCU: 1, Memory: 4GB
+          - m6g.large         # vPCU: 2, Memory: 8GB
+          - m6g.xlarge        # vPCU: 4, Memory: 16GB
+          - m6g.2xlarge       # vPCU: 8, Memory: 32GB
+          - m6g.4xlarge       # vPCU: 16, Memory: 64GB
+          - m6g.8xlarge       # vPCU: 32, Memory: 128GB
+          - m6g.12xlarge      # vPCU: 48, Memory: 192GB
+          - m6g.16xlarge      # vPCU: 64, Memory: 256GB
+        # LaunchTemplate: # 後で入れる
+          # LaunchTemplateSpecification
+        MaxvCpus: !Ref ComputerEnvMaxvCpus
+        MinvCpus: 0
+        SecurityGroupIds:
+          - xxxxxxxxxxxxx
+        Subnets:
+          - xxxxxxxxxxxxx
+          - xxxxxxxxxxxxx
+        Tags:
+          Name: !Sub ${PrefixName}-compute-environment
+        Type: EC2
+      ReplaceComputeEnvironment: true # default true 調べる
+      # ServiceRole: String # 後で入れる
+      # State: String # required no
+      Tags:
+        Name: !Sub ${PrefixName}-aws-batch-cfn
+      Type: MANAGED # 一応調べる
+      # UpdatePolicy: # インフラが更新された後にタイムアウトが設定される？
+      #   JobExecutionTimeoutMinutes : 30 #defaul
+      #   TerminateJobsOnUpdate: false #default
+
+  JobQueue:
+    Type: AWS::Batch::JobQueue
+    Properties:
+      ComputeEnvironmentOrder: 
+        - ComputeEnvironment: !Ref ComputeEnvironment
+          Order: 1
+      JobQueueName: !Sub ${PrefixName}-job-queue
+      # JobStateTimeLimitActions: 
+      #   - JobStateTimeLimitAction # 後で調べる
+      Priority: 0 # 小さい方が優先される
+      State: ENABLED
+      Tags:
+        Name: !Sub ${PrefixName}-aws-batch-cfn
+
+  JobDefinition:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      ContainerProperties:
+        Command:
+          - echo "hello world"
+        Vcpus: 1
+        Memory: 40
+        Image: xxxxxxxxxxxxxxxxxxx
+      RetryStrategy:
+        Attempts: 1
+      JobDefinitionName: !Sub ${PrefixName}-job-definition
+      # Parameters: Json # 使わない？
+      # RetryStrategy: # 設定する？
+      Tags:
+        Name: !Sub ${PrefixName}-aws-batch-cfn
+      # Timeout: # デフォルトではタイムアウトは存在しない
+      Type: container
