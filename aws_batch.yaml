@@ -11,11 +11,55 @@ Parameters:
     Description: Maximum number of vCPUs
 
 Resources:
-  SampleInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      # DataProtectionPolicy: Json
+      # KmsKeyId: String
+      # LogGroupClass: String
+      LogGroupName: !Sub ${PrefixName}-aws-batch-log-group
+      # RetentionInDays: Integer
+
+  AWSBatchServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - batch.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole
+      Path: "/service-role/"
+
+  EcsInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        ## start
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+        ## end
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role
+        - arn:aws:iam::aws:policy/AWSCodeCommitFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+  EcsInstanceProfile:
+    Type: "AWS::IAM::InstanceProfile"
     Properties:
       Roles:
-        - aws-batch-cfn-sample-role
+        - !Ref EcsInstanceRole
 
   ComputeEnvironment:
     Type: AWS::Batch::ComputeEnvironment
@@ -25,30 +69,30 @@ Resources:
         # Ec2Configuration: 
         #   - ImageType: ECS_AL2 # default value is ECS_AL2
         # ImageId: String
-        InstanceRole: !Ref SampleInstanceProfile
-        InstanceTypes: 
-          - m6g.medium        # vPCU: 1, Memory: 4GB
-          - m6g.large         # vPCU: 2, Memory: 8GB
-          - m6g.xlarge        # vPCU: 4, Memory: 16GB
-          - m6g.2xlarge       # vPCU: 8, Memory: 32GB
-          - m6g.4xlarge       # vPCU: 16, Memory: 64GB
-          - m6g.8xlarge       # vPCU: 32, Memory: 128GB
-          - m6g.12xlarge      # vPCU: 48, Memory: 192GB
-          - m6g.16xlarge      # vPCU: 64, Memory: 256GB
+        InstanceRole: !Ref EcsInstanceProfile
+        InstanceTypes:
+          - m6g.medium        # vCPU: 1, Memory: 4GB
+          - m6g.large         # vCPU: 2, Memory: 8GB
+          - m6g.xlarge        # vCPU: 4, Memory: 16GB
+          - m6g.2xlarge       # vCPU: 8, Memory: 32GB
+          - m6g.4xlarge       # vCPU: 16, Memory: 64GB
+          - m6g.8xlarge       # vCPU: 32, Memory: 128GB
+          - m6g.12xlarge      # vCPU: 48, Memory: 192GB
+          - m6g.16xlarge      # vCPU: 64, Memory: 256GB
         # LaunchTemplate: # 後で入れる
           # LaunchTemplateSpecification
         MaxvCpus: !Ref ComputerEnvMaxvCpus
         MinvCpus: 0
+        DesiredvCpus: 0
         SecurityGroupIds:
-          - xxxxxxxxxxxxx
+          - xxxxxxxx
         Subnets:
-          - xxxxxxxxxxxxx
-          - xxxxxxxxxxxxx
+          - xxxxxxxx
         Tags:
           Name: !Sub ${PrefixName}-compute-environment
         Type: EC2
       ReplaceComputeEnvironment: true # default true 調べる
-      # ServiceRole: String # 後で入れる
+      ServiceRole: !GetAtt AWSBatchServiceRole.Arn
       # State: String # required no
       Tags:
         Name: !Sub ${PrefixName}-aws-batch-cfn
@@ -66,7 +110,7 @@ Resources:
       JobQueueName: !Sub ${PrefixName}-job-queue
       # JobStateTimeLimitActions: 
       #   - JobStateTimeLimitAction # 後で調べる
-      Priority: 0 # 小さい方が優先される
+      Priority: 1 # 小さい方が優先される
       State: ENABLED
       Tags:
         Name: !Sub ${PrefixName}-aws-batch-cfn
@@ -79,7 +123,9 @@ Resources:
           - echo "hello world"
         Vcpus: 1
         Memory: 40
-        Image: xxxxxxxxxxxxxxxxxxx
+        LogConfiguration:
+          LogDriver: awslogs
+        Image: xxxxxxxxx.dkr.ecr.ap-northeast-1.amazonaws.com/xxxxxx:latest
       RetryStrategy:
         Attempts: 1
       JobDefinitionName: !Sub ${PrefixName}-job-definition
